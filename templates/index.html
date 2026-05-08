@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ApoE Gene Expression Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--white:#ffffff;--surface:#eef1f6;--border:#d5dbe6;
+  --text:#1a2236;--muted:#6b7a96;--accent:#1d4ed8;--accent-l:#dbeafe;
+  --up:#16a34a;--down:#dc2626;--warn:#d97706;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --radius:6px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05)
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.55;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:24px;padding:0 32px;height:56px;background:var(--text);position:sticky;top:0;z-index:200}
+.logo{font-family:var(--sans);font-size:15px;font-weight:700;color:#fff;letter-spacing:.3px;white-space:nowrap}
+.logo span{color:#93c5fd;font-weight:300}
+.stats-bar{display:flex;gap:28px;margin-left:auto}
+.stat-pill{font-size:12px;color:#94a3b8}
+.stat-pill strong{color:#fff;font-weight:600}
+.tabs{display:flex;padding:0 32px;background:var(--white);border-bottom:1px solid var(--border);box-shadow:var(--shadow)}
+.tab-btn{padding:13px 20px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:color .15s,border-color .15s;white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.main{max-width:1280px;margin:0 auto;padding:28px 32px}
+.tab-panel{display:none}
+.tab-panel.active{display:block;animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.page-heading{margin-bottom:20px}
+.page-heading h2{font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px}
+.page-heading p{color:var(--muted);font-size:13px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:18px;box-shadow:var(--shadow)}
+.card-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:14px}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.ctrl-group{display:flex;flex-direction:column;gap:5px}
+.ctrl-group label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+input[type="text"],input[type="number"],select{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 11px;outline:none;transition:border-color .15s,box-shadow .15s;min-width:150px}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+.btn{padding:8px 18px;border-radius:var(--radius);border:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#1e40af}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.ac-wrap{position:relative}
+#ac-list{position:absolute;top:100%;left:0;right:0;background:var(--white);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);z-index:300;max-height:280px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.ac-item{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--surface);display:flex;justify-content:space-between;align-items:center;transition:background .1s}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover{background:var(--accent-l)}
+.ac-name{font-weight:500}
+.ac-id{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.type-tag{font-size:10px;padding:2px 7px;border-radius:3px;background:var(--surface);color:var(--muted);border:1px solid var(--border);font-weight:500}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:9px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;font-family:var(--sans);font-weight:600}
+tbody tr{border-bottom:1px solid var(--surface)}
+tbody tr:hover{background:#f8faff}
+tbody td{padding:9px 14px;vertical-align:middle}
+td.num{text-align:right;font-family:var(--mono);font-size:12px}
+.gene-link{color:var(--accent);cursor:pointer;font-weight:600}
+.gene-link:hover{text-decoration:underline}
+.rank{color:var(--muted);font-family:var(--mono);font-size:12px}
+.lfc-up{color:var(--up);font-weight:500}
+.lfc-down{color:var(--down);font-weight:500}
+.fdr-sig{color:var(--up);font-weight:500}
+.fdr-warn{color:var(--warn);font-weight:500}
+.fdr-ns{color:var(--muted)}
+.gene-header{display:flex;align-items:baseline;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.gene-title{font-size:28px;font-weight:700;line-height:1}
+.gene-id-label{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.meta-row{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+.meta-item{font-size:13px;color:var(--muted)}
+.meta-item strong{color:var(--text);font-weight:600}
+.count-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:12px}
+.count-cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.count-cell .grp{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.count-cell .val{font-size:22px;font-weight:700;color:var(--accent);font-family:var(--sans)}
+.count-cell .sem-row{font-size:11px;color:var(--muted);margin-top:3px}
+.count-cell .nsamp{font-size:11px;color:var(--muted);margin-top:2px}
+.results-bar{font-size:12px;color:var(--muted);margin-bottom:10px;padding:0 2px}
+.results-bar strong{color:var(--text)}
+.empty-state{text-align:center;padding:52px 20px;color:var(--muted)}
+.empty-state .empty-icon{width:40px;height:40px;margin:0 auto 12px;opacity:.3}
+.empty-state p{font-size:14px}
+.loading-state{padding:24px;color:var(--muted);font-style:italic;font-size:13px}
+.error-state{padding:14px 16px;color:var(--down);font-size:13px;background:#fef2f2;border-radius:var(--radius);border:1px solid #fecaca}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:860px){.two-col{grid-template-columns:1fr}}
+.about-layout{display:grid;grid-template-columns:220px 1fr;gap:28px;align-items:start}
+@media(max-width:700px){.about-layout{grid-template-columns:1fr}}
+.mouse-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:24px 16px;text-align:center;box-shadow:var(--shadow)}
+.mouse-panel .mouse-label{font-size:11px;color:var(--muted);margin-top:12px;font-style:italic}
+.about-content{display:flex;flex-direction:column;gap:18px}
+.about-section h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px}
+.about-section p,.about-section li{font-size:13px;color:var(--text);line-height:1.7}
+.about-section ul{padding-left:18px}
+.about-section li{margin-bottom:5px}
+.about-section li strong{color:var(--accent)}
+.btn-download{background:#f0fdf4;color:var(--up);border:1px solid #bbf7d0}
+.btn-download:hover{background:#dcfce7;border-color:var(--up)}
+
+/* Stat header help links */
+th.stat-help-link{cursor:pointer}
+th.stat-help-link .stat-help-icon{
+  display:inline-block;margin-left:4px;vertical-align:middle;
+  width:13px;height:13px;border-radius:50%;background:var(--accent-l);
+  color:var(--accent);font-size:9px;font-weight:700;line-height:13px;
+  text-align:center;border:1px solid #bfcfff;font-style:normal;
+  font-family:var(--sans);transition:background .12s,border-color .12s;
+  position:relative;top:-1px
+}
+th.stat-help-link:hover .stat-help-icon{background:#bfdbfe;border-color:var(--accent)}
+
+/* Glossary highlight pulse */
+@keyframes glossaryPulse{
+  0%{background:var(--accent-l);border-color:var(--accent)}
+  70%{background:var(--accent-l);border-color:var(--accent)}
+  100%{background:var(--surface);border-color:var(--border)}
+}
+.glossary-highlight{animation:glossaryPulse 1.8s ease forwards}
+
+/* Condition key table */
+.cond-key-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.cond-key-table th{background:var(--surface);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-weight:600}
+.cond-key-table td{padding:8px 12px;border-bottom:1px solid var(--surface);vertical-align:middle}
+.cond-key-table tr:last-child td{border-bottom:none}
+.cond-key-table tr:hover td{background:#f8faff}
+.cond-code{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-l);padding:2px 7px;border-radius:3px;white-space:nowrap}
+.cond-sci{font-weight:600;color:var(--text)}
+
+/* Ensembl link */
+.ensembl-link{color:var(--accent);cursor:pointer;border-bottom:2px solid var(--accent);padding-bottom:1px;transition:opacity .15s}
+.ensembl-link:hover{opacity:.7}
+
+/* ── Sortable column headers ───────────────────────────────────────────── */
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{color:var(--accent);background:#e6eaf3}
+th.sortable .sort-arrows{display:inline-flex;flex-direction:column;margin-left:5px;vertical-align:middle;line-height:1;gap:0px;position:relative;top:-1px}
+th.sortable .sort-arrows .sa-up,
+th.sortable .sort-arrows .sa-down{
+  font-size:8px;line-height:1;color:#b0bbd0;transition:color .12s;display:block
+}
+th.sortable.sort-asc .sa-up{color:var(--accent)}
+th.sortable.sort-desc .sa-down{color:var(--accent)}
+th.sortable:hover .sa-up,
+th.sortable:hover .sa-down{color:#8899bb}
+
+/* ── Volcano Plot Styles ───────────────────────────────────────────────── */
+.volcano-layout{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start}
+@media(max-width:960px){.volcano-layout{grid-template-columns:1fr}}
+.volcano-controls-panel{position:sticky;top:74px}
+.volcano-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;position:relative;overflow:hidden}
+.volcano-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.volcano-plot-title{font-size:13px;font-weight:700;color:var(--text)}
+.volcano-subtitle{font-size:11px;color:var(--muted);margin-top:2px}
+.volcano-zoom-hint{font-size:11px;color:var(--muted);font-style:italic}
+#volcano-svg{display:block;width:100%;cursor:crosshair}
+.volcano-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--surface)}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-dot.up{background:#dc2626}
+.legend-dot.down{background:#1d4ed8}
+.legend-dot.ns{background:#cbd5e1}
+.legend-dot.sig-up{background:#dc2626;border:2px solid #991b1b}
+.volcano-tooltip{
+  position:fixed;
+  background:var(--text);
+  color:#fff;
+  border-radius:6px;
+  padding:10px 14px;
+  font-size:12px;
+  pointer-events:none;
+  z-index:9999;
+  max-width:220px;
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+  opacity:0;
+  transition:opacity .12s;
+  line-height:1.6;
+}
+.tooltip-gene{font-weight:700;font-size:13px;margin-bottom:3px}
+.tooltip-row{display:flex;justify-content:space-between;gap:12px}
+.tooltip-label{color:#94a3b8;font-size:11px}
+.tooltip-val{font-family:var(--mono);font-size:11px}
+.volcano-stats-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.vstat{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:7px 12px;font-size:12px;color:var(--muted)}
+.vstat strong{color:var(--text);font-weight:700;font-size:13px}
+.zoom-controls{display:flex;gap:6px;align-items:center}
+.zoom-btn{width:28px;height:28px;border-radius:4px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.zoom-btn:hover{background:var(--surface);border-color:var(--accent);color:var(--accent)}
+.volcano-loading{display:flex;align-items:center;justify-content:center;height:420px;color:var(--muted);font-size:13px;font-style:italic}
+.btn-export{background:#f0f4ff;color:var(--accent);border:1px solid #bfcfff}
+.btn-export:hover{background:#dbeafe;border-color:var(--accent)}
+
+/* ── Bar Plot Styles ───────────────────────────────────────────────── */
+#barplotModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center}
+#barplotModal.open{display:flex}
+.modal-box{background:var(--white);border-radius:var(--radius);padding:28px;width:600px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative}
+.modal-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
+.modal-close:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="volcano-tooltip" id="vTooltip"></div>
+
+<header class="topbar">
+  <div class="logo">ApoE Gene Expression <span>Explorer</span></div>
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-pill">Connecting to database...</div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="tab-home">Home</button>
+  <button class="tab-btn" data-tab="tab-about">About</button>
+  <button class="tab-btn" data-tab="tab-gene">Gene Search</button>
+  <button class="tab-btn" data-tab="tab-de">DE by Comparison</button>
+  <button class="tab-btn" data-tab="tab-debygroup">DE by Genotype/Exon</button>
+  <button class="tab-btn" data-tab="tab-volcano">Volcano Plots</button>
+  <button class="tab-btn" data-tab="tab-help">Help</button>
+</nav>
+
+<main class="main">
+
+<!-- TAB: Home -->
+<section class="tab-panel active" id="tab-home">
+  <div class="page-heading">
+    <h2>Home</h2>
+    <p>Welcome to the ApoE Gene Expression Explorer, here is guidance on using each section of this application.</p>
+  </div>
+
+    <!-- How to Use Each Tab -->
+    <div class="card about-section">
+      <h3>How to Use Each Tab</h3>
+      <ul style="list-style:none;padding-left:0">
+        <li style="margin-bottom:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,background .15s" class="help-tab-item" data-target="tab-gene" onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-l)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <strong style="color:var(--accent);font-size:13px">Gene Search</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--accent);font-weight:600">Go to tab →</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);line-height:1.7;padding-left:25px">Type any gene name or Ensembl ID to see per-group mean counts (with SEM) and DE results. Clicking a gene name in any results table will navigate here automatically. Click the gene title to open its Ensembl page.</p>
+        </li>
+        <li style="margin-bottom:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,background .15s" class="help-tab-item" data-target="tab-de" onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-l)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <strong style="color:var(--accent);font-size:13px">DE by Comparison</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--accent);font-weight:600">Go to tab →</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);line-height:1.7;padding-left:25px">Select any pairwise comparison group, set FDR and logFC thresholds, and retrieve the top-ranked differentially expressed genes for that specific comparison.</p>
+        </li>
+        <li style="margin-bottom:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,background .15s" class="help-tab-item" data-target="tab-debygroup" onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-l)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <strong style="color:var(--accent);font-size:13px">DE by Genotype/Exon</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--accent);font-weight:600">Go to tab →</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);line-height:1.7;padding-left:25px">Filter differential expression results by ApoE genotype, exon 19 status, direction, FDR, and logFC &mdash; returns full DE statistics including comparison group for every result.</p>
+        </li>
+        <li style="margin-bottom:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,background .15s" class="help-tab-item" data-target="tab-volcano" onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-l)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M8.5 17 12 11l3.5 6"/></svg>
+            <strong style="color:var(--accent);font-size:13px">Volcano Plots</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--accent);font-weight:600">Go to tab →</span>
+          </div>
+          <p style="font-size:13px;color:var(--text);line-height:1.7;padding-left:25px">Visualize all DE results for a selected comparison as an interactive volcano plot. Hover over points to see gene details; scroll to zoom, drag to pan. Click a point to jump to that gene's full profile. Use the download button to save as PNG.</p>
+        </li>
+      </ul>
+    </div>
+
+  </section>
+
+<!-- TAB 1: About -->
+  <section class="tab-panel" id="tab-about">
+    <div class="page-heading">
+      <h2>About This Dataset</h2>
+      <p>Project background and experimental design. See the <a href="#" class="tab-nav-link" data-target="tab-help" style="color:var(--accent);font-weight:600">Help</a> tab for condition codes and usage guidance.</p>
+    </div>
+    <div class="about-layout">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div class="mouse-panel">
+          <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" width="160" height="200" aria-label="Laboratory mouse illustration">
+            <ellipse cx="80" cy="130" rx="46" ry="56" fill="#d1d5db" stroke="#9ca3af" stroke-width="1.5"/>
+            <ellipse cx="80" cy="72" rx="34" ry="30" fill="#d1d5db" stroke="#9ca3af" stroke-width="1.5"/>
+            <ellipse cx="52" cy="48" rx="14" ry="16" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.5"/>
+            <ellipse cx="52" cy="48" rx="9" ry="11" fill="#fca5a5" opacity=".7"/>
+            <ellipse cx="108" cy="48" rx="14" ry="16" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.5"/>
+            <ellipse cx="108" cy="48" rx="9" ry="11" fill="#fca5a5" opacity=".7"/>
+            <circle cx="66" cy="68" r="5" fill="#1e293b"/>
+            <circle cx="94" cy="68" r="5" fill="#1e293b"/>
+            <circle cx="68" cy="66" r="1.5" fill="#fff"/>
+            <circle cx="96" cy="66" r="1.5" fill="#fff"/>
+            <ellipse cx="80" cy="84" rx="5" ry="3.5" fill="#fca5a5"/>
+            <line x1="75" y1="83" x2="46" y2="78" stroke="#6b7280" stroke-width="1" stroke-linecap="round"/>
+            <line x1="74" y1="86" x2="44" y2="86" stroke="#6b7280" stroke-width="1" stroke-linecap="round"/>
+            <line x1="75" y1="89" x2="46" y2="94" stroke="#6b7280" stroke-width="1" stroke-linecap="round"/>
+            <line x1="85" y1="83" x2="114" y2="78" stroke="#6b7280" stroke-width="1" stroke-linecap="round"/>
+            <line x1="86" y1="86" x2="116" y2="86" stroke="#6b7280" stroke-width="1" stroke-linecap="round"/>
+            <line x1="85" y1="89" x2="114" y2="94" stroke="#6b7280" stroke-width="1" stroke-linecap="round"/>
+            <ellipse cx="58" cy="166" rx="11" ry="8" fill="#c4c8d0" stroke="#9ca3af" stroke-width="1"/>
+            <ellipse cx="102" cy="166" rx="11" ry="8" fill="#c4c8d0" stroke="#9ca3af" stroke-width="1"/>
+            <path d="M 124 150 Q 155 148 158 168 Q 160 185 145 188" fill="none" stroke="#9ca3af" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <div class="mouse-label">Mus musculus (male)</div>
+        </div>
+        <div class="mouse-panel">
+          <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px">Student Developers</h3>
+          <ul style="text-align:left;padding-left:18px;font-size:13px;line-height:1.8">
+            <li>Marilyn McCarthy</li>
+            <li>Riya Desai</li>
+            <li>Jiya Ashar</li>
+            <li>Penelope Varela Dye</li>
+          </ul>
+          <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-top:12px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:6px">Faculty</h3>
+          <ul style="text-align:left;padding-left:18px;font-size:13px;line-height:1.8">
+            <li>Dr. Uwe Beffert</li>
+            <li>Dr. Gary Benson</li>
+          </ul>
+          <div class="mouse-label">BF768 &middot; Spring 2026 &middot; Boston University</div>
+        </div>
+      </div>
+      <div class="about-content">
+        <div class="card about-section">
+          <h3>Study Overview</h3>
+          <p>This application provides access to RNA-seq gene expression data from a mouse study examining the functional impact of <strong>Apoer2 (Lrp8) exon 19 splicing</strong> in the context of ApoE3 and ApoE4 genotypes.</p>
+          <br/>
+          <p>APOE is one of the strongest genetic risk factors for Alzheimer's disease. The <strong>APOE4</strong> allele is overrepresented in Alzheimer's patients (40-60% of cases) and interacts with LDL receptors in the brain differently from APOE3. This study investigates how alternative splicing of exon 19 in the Apoer2 receptor modulates downstream transcriptomic responses in each genotype.</p>
+        </div>
+        <div class="two-col">
+          <div class="card about-section">
+            <h3>Experimental Design</h3>
+            <ul>
+              <li><strong>Species:</strong> Mus musculus, male mice only</li>
+              <li><strong>ApoE Genotypes:</strong> e3/e3 (ApoE3) and e4/e4 (ApoE4)</li>
+              <li><strong>Exon 19 Status:</strong> Present (+ex19) or Deleted (&Delta;ex19)</li>
+              <li><strong>Conditions:</strong> a3c, a3d, a4c, a4d encoding genotype &times; exon combinations</li>
+              <li><strong>4 experimental groups</strong> from the 2&times;2 factorial design</li>
+            </ul>
+          </div>
+          <div class="card about-section">
+            <h3>Key Questions Addressed</h3>
+            <ul>
+              <li>Top 20 differentially expressed genes in ApoE4 vs. ApoE3</li>
+              <li>Mean raw counts per genotype for any specific gene</li>
+              <li>Genes DE between ApoE3 and ApoE4 with exon 19 present</li>
+              <li>How exon 19 deletion alters the transcriptomic response</li>
+              <li>Condition-specific expression profiles across all 4 groups</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB: Help -->
+  <section class="tab-panel" id="tab-help">
+    <div class="page-heading">
+      <h2>Help &amp; Reference</h2>
+      <p>Condition codes, pairwise comparisons, defintions and guidance on using each section of this application.</p>
+    </div>
+
+    <!-- Condition Code Key -->
+    <div class="card about-section">
+      <h3>Condition Code Key</h3>
+      <p style="margin-bottom:12px">Each experimental group is encoded as a short code combining ApoE genotype and exon 19 status. The table below maps these codes to their scientific descriptions and the pairwise comparisons used in differential expression analysis.</p>
+      <table class="cond-key-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Scientific Description</th>
+            <th>ApoE Genotype</th>
+            <th>Exon 19 Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="cond-code">a3c</span></td>
+            <td class="cond-sci">+ex19 e3/e3</td>
+            <td>e3/e3 (ApoE3)</td>
+            <td>Exon 19 Present (+ex19)</td>
+          </tr>
+          <tr>
+            <td><span class="cond-code">a3d</span></td>
+            <td class="cond-sci">&Delta;ex19 e3/e3</td>
+            <td>e3/e3 (ApoE3)</td>
+            <td>Exon 19 Deleted (&Delta;ex19)</td>
+          </tr>
+          <tr>
+            <td><span class="cond-code">a4c</span></td>
+            <td class="cond-sci">+ex19 e4/e4</td>
+            <td>e4/e4 (ApoE4)</td>
+            <td>Exon 19 Present (+ex19)</td>
+          </tr>
+          <tr>
+            <td><span class="cond-code">a4d</span></td>
+            <td class="cond-sci">&Delta;ex19 e4/e4</td>
+            <td>e4/e4 (ApoE4)</td>
+            <td>Exon 19 Deleted (&Delta;ex19)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:10px">Pairwise Comparison Groups</div>
+        <table class="cond-key-table">
+          <thead>
+            <tr>
+              <th>Comparison Code</th>
+              <th>Scientific Label</th>
+              <th>Biological Question</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="cond-code">a3c_a3d</span></td>
+              <td class="cond-sci">+ex19 e3/e3 vs. &Delta;ex19 e3/e3</td>
+              <td>Effect of exon 19 deletion in ApoE3</td>
+            </tr>
+            <tr>
+              <td><span class="cond-code">a4c_a4d</span></td>
+              <td class="cond-sci">+ex19 e4/e4 vs. &Delta;ex19 e4/e4</td>
+              <td>Effect of exon 19 deletion in ApoE4</td>
+            </tr>
+            <tr>
+              <td><span class="cond-code">a3c_a4c</span></td>
+              <td class="cond-sci">+ex19 e3/e3 vs. +ex19 e4/e4</td>
+              <td>Effect of ApoE genotype with exon 19 present</td>
+            </tr>
+            <tr>
+              <td><span class="cond-code">a3d_a4d</span></td>
+              <td class="cond-sci">&Delta;ex19 e3/e3 vs. &Delta;ex19 e4/e4</td>
+              <td>Effect of ApoE genotype with exon 19 deleted</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Statistics Glossary -->
+    <div class="card about-section" id="help-stats-glossary">
+      <h3>DE Statistics Glossary</h3>
+      <p style="margin-bottom:16px">The differential expression tables report the following statistics for each gene. Click any column header in a results table to jump directly to its definition here.</p>
+      <div style="display:flex;flex-direction:column;gap:0">
+
+        <div id="help-stat-logfc" style="padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-l);padding:2px 9px;border-radius:3px">logFC</span>
+            <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Log₂ Fold Change</span>
+          </div>
+          <p style="font-size:13px;line-height:1.75">The log₂ ratio of mean expression between the two conditions being compared. A value of <strong>+1</strong> means the gene is expressed <strong>2× higher</strong> in condition A vs. B; <strong>−1</strong> means 2× lower. Positive values indicate up-regulation in the first-listed condition; negative values indicate down-regulation. Larger absolute values reflect stronger differential expression.</p>
+        </div>
+
+        <div id="help-stat-logcpm" style="padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-l);padding:2px 9px;border-radius:3px">logCPM</span>
+            <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Log₂ Counts Per Million</span>
+          </div>
+          <p style="font-size:13px;line-height:1.75">The average log₂ expression level of the gene across all samples, expressed as counts per million (CPM) mapped reads. CPM normalizes for sequencing depth so that samples with different total read counts can be compared. Higher logCPM values indicate more highly expressed genes. This metric is useful for gauging baseline expression abundance — very low logCPM values (e.g. below 0) may suggest the gene is lowly expressed and DE calls should be interpreted with extra caution.</p>
+        </div>
+
+        <div id="help-stat-f" style="padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-l);padding:2px 9px;border-radius:3px">F</span>
+            <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">F-Statistic (quasi-likelihood)</span>
+          </div>
+          <p style="font-size:13px;line-height:1.75">The F-statistic from the quasi-likelihood F-test implemented in edgeR. It measures the ratio of the variance explained by the difference between groups to the residual (within-group) variance. A larger F value indicates a stronger signal of differential expression relative to the noise in the data. The F-test is preferred over the likelihood ratio test when sample sizes are small because it better accounts for uncertainty in the dispersion estimate.</p>
+        </div>
+
+        <div id="help-stat-pvalue" style="padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-l);padding:2px 9px;border-radius:3px">P-Value</span>
+            <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Nominal p-value</span>
+          </div>
+          <p style="font-size:13px;line-height:1.75">The raw (unadjusted) probability of observing an F-statistic at least as extreme as the one calculated, assuming no true differential expression (null hypothesis). Small p-values suggest the observed difference is unlikely to be due to chance alone. However, because thousands of genes are tested simultaneously, the raw p-value alone is not sufficient for declaring significance — use the <strong>FDR</strong> (adjusted p-value) for filtering instead.</p>
+        </div>
+
+        <div id="help-stat-fdr" style="padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);margin-bottom:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-l);padding:2px 9px;border-radius:3px">FDR</span>
+            <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">False Discovery Rate (Benjamini–Hochberg adjusted p-value)</span>
+          </div>
+          <p style="font-size:13px;line-height:1.75">The p-value corrected for multiple testing using the Benjamini–Hochberg procedure. When testing thousands of genes at once, many will appear significant by chance. The FDR represents the expected proportion of false positives among all genes called significant at that threshold. An FDR of <strong>0.05</strong> means that approximately 5% of genes passing that cutoff are expected to be false positives. This is the primary metric used for filtering results in this application. Color coding: <span class="fdr-sig">green ≤ 0.001</span>, <span class="fdr-warn">amber ≤ 0.05</span>, <span class="fdr-ns">grey &gt; 0.05</span>.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card about-section">
+      <h3>Biological Glossary</h3>
+      <ul>
+        <li><strong>Alzheimer's Disease (AD):</strong> A progressive neurodegenerative disorder and the most common cause of dementia, characterized by memory loss, mood disturbances, and decline of executive function. Hallmarks include amyloid-&beta; plaques and neurofibrillary tau tangles.</li>
+        <li><strong>Sporadic AD (sAD):</strong> The most prevalent form (~95% of cases), arising without a single causative mutation. Risk is driven by age and genetic factors such as the APOE4 allele.</li>
+        <li><strong>Familial AD:</strong> A rare inherited form (~5% of cases) caused by highly penetrant mutations, typically in APP, PSEN1, or PSEN2.</li>
+        <li><strong>APOE (Apolipoprotein E):</strong> A lipoprotein produced predominantly by astrocytes in the CNS that mediates lipid transport, immune modulation, and signal transduction by binding members of the LDLR family.</li>
+        <li><strong>APOE4 (&epsilon;4 allele):</strong> The strongest genetic risk factor for sporadic AD, increasing risk 3&ndash;4 fold. Present in ~14% of the general population but 40&ndash;65% of AD patients.</li>
+        <li><strong>APOE3 (&epsilon;3 allele):</strong> The most common APOE isoform (~79% of the population), considered the neutral reference allele for AD risk comparisons.</li>
+        <li><strong>APOER2 / LRP8:</strong> A brain-predominant LDLR family member that regulates neuronal migration, dendritic spine and synapse formation, and transcription of learning and memory genes. Binds ApoE, Reelin, and clusterin. Highly alternatively spliced in neurons.</li>
+        <li><strong>Exon 19 (Ex19):</strong> An alternatively spliced exon of Apoer2 whose inclusion (+Ex19) or exclusion (&Delta;Ex19) alters APOER2 signaling and produces distinct hippocampal transcriptomic profiles, with effects differing between APOE3 and APOE4 backgrounds.</li>
+        <li><strong>Knock-in (KI):</strong> A genetic modification inserting a specific allele (here, human APOE3 or APOE4) at the endogenous mouse locus to model human gene function.</li>
+        <li><strong>RNA-seq:</strong> A high-throughput technique that quantifies genome-wide gene expression by sequencing RNA transcripts. Used here to profile hippocampal transcriptomes across four mouse genotypes.</li>
+        <li><strong>Differential Expression (DE):</strong> A statistical comparison of gene expression between two conditions. Significantly different genes are called differentially expressed genes (DEGs).</li>
+        <li><strong>PCA (Principal Component Analysis):</strong> Summarizes genome-wide expression into a few components. Samples with similar profiles cluster together.</li>
+        <li><strong>GO (Gene Ontology):</strong> Standardized vocabulary for gene function across Biological Process, Cellular Component, and Molecular Function. Used to identify functional themes among DEGs.</li>
+        <li><strong>GSEA / NES:</strong> Gene Set Enrichment Analysis tests whether a gene set (e.g. a GO pathway) is enriched among the most up- or down-regulated genes. The Normalized Enrichment Score (NES) reflects direction and magnitude.</li>
+        <li><strong>Amyloid-&beta; (A&beta;):</strong> A peptide that aggregates into extracellular plaques in the brain; a hallmark of Alzheimer's pathology.</li>
+        <li><strong>Tau / Neurofibrillary Tangles:</strong> Tau is a microtubule-associated protein that forms intracellular tangles when hyperphosphorylated — a second Alzheimer's hallmark.</li>
+        <li><strong>Reelin:</strong> A secreted glycoprotein and APOER2 ligand that regulates neuronal migration and synaptic plasticity.</li>
+        <li><strong>Hippocampus:</strong> A brain region critical for learning and memory, vulnerable early in Alzheimer's disease. Tissue here is male mouse hippocampus harvested at 3 months.</li>
+      </ul>
+    </div>
+
+    
+  </section>
+
+  <!-- TAB 2: Gene Search -->
+  <section class="tab-panel" id="tab-gene">
+    <div class="page-heading">
+      <h2>Gene Search</h2>
+      <p>Search for any gene by name or Ensembl ID to view expression levels and differential expression results across all comparisons.</p>
+    </div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctrl-group" style="flex:1;min-width:240px;">
+          <label for="geneInput">Gene Name or Ensembl ID</label>
+          <div class="ac-wrap">
+            <input type="text" id="geneInput" placeholder="e.g. Apoe, Lrp8, ENSMUSG..." autocomplete="off"/>
+            <div id="ac-list"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btnGeneSearch">Search</button>
+        <button class="btn btn-secondary" id="btnGeneClear">Clear</button>
+      </div>
+    </div>
+    <div id="geneResult">
+      <div class="empty-state">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <p>Enter a gene name or Ensembl ID above to view its expression and differential expression profile.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: DE by Comparison -->
+  <section class="tab-panel" id="tab-de">
+    <div class="page-heading">
+      <h2>Differential Expression by Comparison Group</h2>
+      <p>Retrieve the top differentially expressed genes for a specific pairwise comparison group. Filter by FDR threshold, minimum fold-change, and direction.</p>
+    </div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctrl-group">
+          <label for="deComparison">Comparison Group</label>
+          <select id="deComparison" style="min-width:340px"><option value="">Loading...</option></select>
+        </div>
+        <div class="ctrl-group">
+          <label for="deFdr">FDR Threshold</label>
+          <input type="number" id="deFdr" value="0.05" min="0" max="1" step="0.01" style="min-width:100px"/>
+        </div>
+        <div class="ctrl-group">
+          <label for="deLogfc">Min |logFC|</label>
+          <input type="number" id="deLogfc" value="0" min="0" step="0.5" style="min-width:100px"/>
+        </div>
+        <div class="ctrl-group">
+          <label for="deDirection">Direction</label>
+          <select id="deDirection" style="min-width:130px">
+            <option value="both">Both</option>
+            <option value="up">Up-regulated</option>
+            <option value="down">Down-regulated</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label for="deLimit">Top N</label>
+          <input type="number" id="deLimit" value="20" min="1" max="200" style="min-width:80px"/>
+        </div>
+        <button class="btn btn-primary" id="btnDE">Run Query</button>
+      </div>
+    </div>
+    <div id="deResult">
+      <div class="empty-state">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <p>Select a comparison group and click <strong>Run Query</strong> to load results.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: DE by Genotype/Exon -->
+  <section class="tab-panel" id="tab-debygroup">
+    <div class="page-heading">
+      <h2>Differential Expression by Genotype &amp; Exon Status</h2>
+      <p>Filter DE results by ApoE genotype, exon 19 presence/absence, direction, FDR, and fold-change. Returns full DE statistics with comparison group for each result.</p>
+    </div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctrl-group">
+          <label for="dgApoE">ApoE Genotype</label>
+          <select id="dgApoE" style="min-width:160px">
+            <option value="all">All Genotypes</option>
+            <option value="e3/e3">e3/e3 (ApoE3)</option>
+            <option value="e4/e4">e4/e4 (ApoE4)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label for="dgExon">Exon 19 Status</label>
+          <select id="dgExon" style="min-width:200px">
+            <option value="all">All</option>
+            <option value="ex19">+ex19 (Exon 19 Present)</option>
+            <option value="Dex19">&#916;ex19 (Exon 19 Deleted)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label for="dgDirection">Direction</label>
+          <select id="dgDirection" style="min-width:140px">
+            <option value="both">Both</option>
+            <option value="up">Up-regulated</option>
+            <option value="down">Down-regulated</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label for="dgFdr">FDR Threshold</label>
+          <input type="number" id="dgFdr" value="0.05" min="0" max="1" step="0.01" style="min-width:100px"/>
+        </div>
+        <div class="ctrl-group">
+          <label for="dgLogfc">Min |logFC|</label>
+          <input type="number" id="dgLogfc" value="1" min="0" step="0.5" style="min-width:100px"/>
+        </div>
+        <div class="ctrl-group">
+          <label for="dgLimit">Top N</label>
+          <input type="number" id="dgLimit" value="30" min="1" max="200" style="min-width:80px"/>
+        </div>
+        <button class="btn btn-primary" id="btnDG">Run Query</button>
+      </div>
+    </div>
+    <div id="dgResult">
+      <div class="empty-state">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <p>Set filter criteria above and click <strong>Run Query</strong> to retrieve differential expression results.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 5: Volcano Plots -->
+  <section class="tab-panel" id="tab-volcano">
+    <div class="page-heading">
+      <h2>Volcano Plots</h2>
+      <p>Interactive visualization of differential expression results. Hover over points to inspect genes; scroll to zoom, drag to pan. Click any point to open its full gene profile.</p>
+    </div>
+    <div class="volcano-layout">
+      <!-- Controls -->
+      <div class="volcano-controls-panel">
+        <div class="card">
+          <div class="card-label">Plot Settings</div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="ctrl-group" style="min-width:0">
+              <label for="vcComparison">Comparison Group</label>
+              <select id="vcComparison" style="min-width:0;width:100%"><option value="">Loading...</option></select>
+            </div>
+            <div class="ctrl-group">
+              <label for="vcFdr">FDR Threshold</label>
+              <input type="number" id="vcFdr" value="0.05" min="0" max="1" step="0.01" style="min-width:0;width:100%"/>
+            </div>
+            <div class="ctrl-group">
+              <label for="vcLogfc">Min |logFC| Line</label>
+              <input type="number" id="vcLogfc" value="1" min="0" step="0.25" style="min-width:0;width:100%"/>
+            </div>
+            <div class="ctrl-group">
+              <label for="vcTopLabel">Label Top N Genes</label>
+              <input type="number" id="vcTopLabel" value="10" min="0" max="50" style="min-width:0;width:100%"/>
+            </div>
+            <button class="btn btn-primary" id="btnVC" style="width:100%">Draw Plot</button>
+            <button class="btn btn-export" id="btnVCDownload" style="width:100%;display:none">&#8595; Download PNG</button>
+          </div>
+        </div>
+        <div class="card" id="vcStatsCard" style="display:none">
+          <div class="card-label">Summary</div>
+          <div id="vcStats"></div>
+        </div>
+      </div>
+      <!-- Plot area -->
+      <div>
+        <div class="volcano-wrap" id="volcanoWrap">
+          <div class="volcano-loading" id="volcanoPlaceholder">
+            <span>Select a comparison and click <strong>&nbsp;Draw Plot&nbsp;</strong> to visualize.</span>
+          </div>
+          <svg id="volcano-svg" style="display:none"></svg>
+        </div>
+        <div class="volcano-legend" id="volcanoLegend" style="display:none;background:var(--white);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);margin-top:0;padding:12px 16px">
+          <div class="legend-item"><div class="legend-dot up"></div> Upregulated (sig.)</div>
+          <div class="legend-item"><div class="legend-dot down"></div> Downregulated (sig.)</div>
+          <div class="legend-item"><div class="legend-dot ns"></div> Not significant</div>
+          <div class="legend-item" style="margin-left:auto;font-style:italic">Scroll to zoom &middot; Drag to pan &middot; Click to open gene</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+$(function(){
+
+  $('.tab-btn').on('click',function(){
+    $('.tab-btn').removeClass('active');
+    $('.tab-panel').removeClass('active');
+    $(this).addClass('active');
+    $('#'+$(this).data('tab')).addClass('active');
+  });
+
+  function switchTab(target){
+    $('.tab-btn').removeClass('active');
+    $('.tab-panel').removeClass('active');
+    $('[data-tab="'+target+'"]').addClass('active');
+    $('#'+target).addClass('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  /* Jump to a stat glossary entry in the Help tab */
+  var STAT_ANCHOR_MAP = {
+    'logFC':   'help-stat-logfc',
+    'logCPM':  'help-stat-logcpm',
+    'F':       'help-stat-f',
+    'PValue':  'help-stat-pvalue',
+    'FDR':     'help-stat-fdr'
+  };
+  function jumpToStat(statKey){
+    switchTab('tab-help');
+    var anchorId = STAT_ANCHOR_MAP[statKey];
+    if(!anchorId) return;
+    setTimeout(function(){
+      var $el = $('#'+anchorId);
+      if(!$el.length) return;
+      $el[0].scrollIntoView({behavior:'smooth', block:'center'});
+      $el.removeClass('glossary-highlight');
+      void $el[0].offsetWidth;
+      $el.addClass('glossary-highlight');
+    }, 180);
+  }
+
+  /* Delegated click on stat-help-link headers */
+  $(document).on('click', 'th.stat-help-link .stat-help-icon', function(e){
+    e.stopPropagation();
+    var stat = $(this).closest('th').data('stat');
+    if(stat) jumpToStat(stat);
+  });
+
+  $(document).on('click','.help-tab-item',function(){
+    switchTab($(this).data('target'));
+  });
+
+  $(document).on('click','.tab-nav-link',function(e){
+    e.preventDefault();
+    switchTab($(this).data('target'));
+  });
+
+  function fmtFDR(v){
+    if(v==null)return'&mdash;';
+    var f=parseFloat(v);
+    var d=f<0.0001?f.toExponential(2):f.toFixed(4);
+    if(f<=0.001)return'<span class="fdr-sig">'+d+'</span>';
+    if(f<=0.05)return'<span class="fdr-warn">'+d+'</span>';
+    return'<span class="fdr-ns">'+d+'</span>';
+  }
+  function fmtLFC(v){
+    if(v==null)return'&mdash;';
+    var f=parseFloat(v);
+    return'<span class="'+(f>=0?'lfc-up':'lfc-down')+'">'+(f>=0?'+':'')+f.toFixed(3)+'</span>';
+  }
+  function fmtP(v){
+    if(v==null)return'&mdash;';
+    var f=parseFloat(v);
+    return f<0.0001?f.toExponential(2):f.toFixed(4);
+  }
+  function fmtN(v,d){d=d===undefined?2:d;return v==null?'&mdash;':parseFloat(v).toFixed(d);}
+  function loading(id){$('#'+id).html('<div class="loading-state">Loading...</div>');}
+  function showErr(id,msg){$('#'+id).html('<div class="error-state">Error: '+msg+'</div>');}
+
+  /* ── Sort arrows HTML helper ─────────────────────────────────────────── */
+  function sortArrows(){
+    return '<span class="sort-arrows"><span class="sa-up">▲</span><span class="sa-down">▼</span></span>';
+  }
+
+  /* ── Stat column header with sort + help-link ────────────────────────── */
+  /* label: display text, col: data-col sort key, statKey: glossary key     */
+  function statHeader(label, col, statKey){
+    return '<th class="sortable stat-help-link" data-col="'+col+'" data-stat="'+statKey+'" style="text-align:right" title="Click to sort \u2022 Click ? to learn about '+label+'">'+
+      label+sortArrows()+'<i class="stat-help-icon">?</i>'+
+    '</th>';
+  }
+
+  /* ── Generic table sorter ────────────────────────────────────────────── */
+  /*
+   * tableId      : CSS selector for the <table>
+   * data         : array of row data objects (kept in closure per table)
+   * colKey       : data field name to sort by
+   * dir          : 'asc' | 'desc'
+   * renderRowsFn : function(sortedData) -> HTML string of <tr>...</tr>
+   * tbodyId      : CSS selector for the <tbody> to replace
+   */
+  function sortTable(tableId, data, colKey, dir, renderRowsFn, tbodyId){
+    // Update header classes
+    $(tableId+' thead th.sortable').removeClass('sort-asc sort-desc');
+    $(tableId+' thead th.sortable[data-col="'+colKey+'"]')
+      .addClass(dir==='asc'?'sort-asc':'sort-desc');
+
+    var sorted = data.slice().sort(function(a,b){
+      var av = parseFloat(a[colKey]);
+      var bv = parseFloat(b[colKey]);
+      if(isNaN(av) && isNaN(bv)) return 0;
+      if(isNaN(av)) return 1;
+      if(isNaN(bv)) return -1;
+      return dir==='asc' ? av-bv : bv-av;
+    });
+
+    $(tbodyId).html(renderRowsFn(sorted));
+  }
+
+  /* ── Attach click handlers to sortable headers ───────────────────────── */
+  /*
+   * tableId      : selector for the <table>
+   * getDataFn    : function() -> current data array
+   * renderRowsFn : function(data) -> <tr>...</tr> HTML
+   * tbodyId      : selector for <tbody>
+   */
+  function attachSortHandlers(tableId, getDataFn, renderRowsFn, tbodyId){
+    // Track sort state per table
+    var state = {col: null, dir: 'asc'};
+    $(document).on('click', tableId+' thead th.sortable', function(){
+      var col = $(this).data('col');
+      if(state.col === col){
+        state.dir = state.dir==='asc' ? 'desc' : 'asc';
+      } else {
+        state.col = col;
+        state.dir = 'asc';
+      }
+      sortTable(tableId, getDataFn(), col, state.dir, renderRowsFn, tbodyId);
+    });
+  }
+
+  var COMP_LABELS = {
+    'a3c_a3d': '+ex19 e3/e3 vs. \u0394ex19 e3/e3',
+    'a3d_a3c': '\u0394ex19 e3/e3 vs. +ex19 e3/e3',
+    'a4c_a4d': '+ex19 e4/e4 vs. \u0394ex19 e4/e4',
+    'a4d_a4c': '\u0394ex19 e4/e4 vs. +ex19 e4/e4',
+    'a3c_a4c': '+ex19 e3/e3 vs. +ex19 e4/e4',
+    'a4c_a3c': '+ex19 e4/e4 vs. +ex19 e3/e3',
+    'a3d_a4d': '\u0394ex19 e3/e3 vs. \u0394ex19 e4/e4',
+    'a4d_a3d': '\u0394ex19 e4/e4 vs. \u0394ex19 e3/e3'
+  };
+
+  function sciLabel(compGroup){
+    return COMP_LABELS[compGroup] || compGroup;
+  }
+
+  function compOptLabel(c){
+    var sci = sciLabel(c.comparison_group);
+    return sci + ' (' + c.comparison_group + ')';
+  }
+
+  function jumpToGene(id,name){
+    $('.tab-btn').removeClass('active');$('.tab-panel').removeClass('active');
+    $('[data-tab="tab-gene"]').addClass('active');$('#tab-gene').addClass('active');
+    $('#geneInput').val(name||id).data('selectedId',id);
+    $('#ac-list').empty();
+    loadGeneDetail(id);
+  }
+
+  /* Stats */
+  $.get('api/stats/overview',function(d){
+    if(d.error){$('#statsBar').html('<div class="stat-pill" style="color:#f87171">Database connection failed</div>');return;}
+    $('#statsBar').html(
+      '<div class="stat-pill"><strong>'+Number(d.total_genes).toLocaleString()+'</strong> Genes</div>'+
+      '<div class="stat-pill"><strong>'+d.total_samples+'</strong> Samples</div>'+
+      '<div class="stat-pill"><strong>'+d.total_comparisons+'</strong> Comparisons</div>'+
+      '<div class="stat-pill"><strong>'+Number(d.sig_de_pairs).toLocaleString()+'</strong> Sig. DE entries (FDR &le; 0.05)</div>'
+    );
+  }).fail(function(){$('#statsBar').html('<div class="stat-pill" style="color:#fca5a5">Could not reach database</div>');});
+
+  /* Autocomplete */
+  var acTimer;
+  $('#geneInput').on('input',function(){
+    $(this).removeData('selectedId');
+    clearTimeout(acTimer);
+    var q=$(this).val().trim();
+    if(q.length<2){$('#ac-list').empty();return;}
+    acTimer=setTimeout(function(){
+      $.get('api/gene/search',{q:q},function(data){
+        if(!data.length){$('#ac-list').empty();return;}
+        $('#ac-list').html(data.map(function(g){
+          return'<div class="ac-item" data-id="'+g.gene_id+'" data-name="'+(g.gene_name||'')+'">'+
+            '<div><div class="ac-name">'+(g.gene_name||'&mdash;')+'</div>'+
+            '<div class="ac-id">'+g.gene_id+'</div></div>'+
+            '<span class="type-tag">'+(g.gene_type||'')+'</span></div>';
+        }).join(''));
+      });
+    },280);
+  });
+  $(document).on('click','.ac-item',function(){
+    var id=$(this).data('id'),name=$(this).data('name');
+    $('#geneInput').val(name||id).data('selectedId',id);
+    $('#ac-list').empty();loadGeneDetail(id);
+  });
+  $(document).on('click',function(e){if(!$(e.target).closest('.ac-wrap').length)$('#ac-list').empty();});
+  $('#btnGeneSearch').on('click',function(){
+  var selectedId=$('#geneInput').data('selectedId');
+  var typed=$('#geneInput').val().trim();
+  if(!typed)return;
+  if(selectedId){
+    loadGeneDetail(selectedId);
+  } else {
+    $.get('api/gene/search',{q:typed},function(data){
+      if(data&&data.length){
+        var id=data[0].gene_id;
+        var name=data[0].gene_name;
+        $('#geneInput').val(name||id).data('selectedId',id);
+        loadGeneDetail(id);
+      } else {
+        $('#geneResult').html('<div class="error-state">No gene found matching "'+typed+'"</div>');
+      }
+    });
+  }
+});
+  $('#geneInput').on('keydown',function(e){if(e.key==='Enter')$('#btnGeneSearch').click();});
+  $('#btnGeneClear').on('click',function(){
+    $('#geneInput').val('').data('selectedId','');$('#ac-list').empty();
+    $('#geneResult').html('<div class="empty-state"><svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><p>Enter a gene name or Ensembl ID above.</p></div>');
+  });
+
+  var COND_SCI = {
+    'a3c': '+ex19 e3/e3',
+    'a3d': '\u0394ex19 e3/e3',
+    'a4c': '+ex19 e4/e4',
+    'a4d': '\u0394ex19 e4/e4'
+  };
+  function condSciLabel(condition){
+    return COND_SCI[condition] || condition;
+  }
+
+  /* ── Gene Detail ─────────────────────────────────────────────────────── */
+  var geneDeData = [];  // store DE data for gene detail table sorting
+
+  function renderGeneDeRows(data){
+    if(!data.length) return '<tr><td colspan="6" style="color:var(--muted);padding:16px 14px">No differential expression results found.</td></tr>';
+    return data.map(function(r){
+      return'<tr><td style="font-size:12px">'+sciLabel(r.comparison_group)+'<br><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">'+r.comparison_group+'</span></td>'+
+        '<td class="num">'+fmtLFC(r.logFC)+'</td>'+
+        '<td class="num" style="width:100px">'+fmtN(r.logCPM)+'</td>'+
+        '<td class="num">'+fmtN(r.F)+'</td>'+
+        '<td class="num" style="width:100px">'+fmtP(r.PValue)+'</td>'+
+        '<td class="num">'+fmtFDR(r.FDR)+'</td></tr>';
+    }).join('');
+  }
+
+  function geneDeTableHtml(){
+    return '<table id="tbl-gene-de">'+
+      '<thead><tr>'+
+        '<th>Comparison</th>'+
+        statHeader('logFC','logFC','logFC')+
+        statHeader('logCPM','logCPM','logCPM')+
+        statHeader('F','F','F')+
+        statHeader('P-Value','PValue','PValue')+
+        statHeader('FDR','FDR','FDR')+
+      '</tr></thead>'+
+      '<tbody id="tbody-gene-de">'+renderGeneDeRows(geneDeData)+'</tbody>'+
+    '</table>';
+  }
+
+  // Register sort handlers once (delegated, survives DOM replacement)
+  var geneDeSort = {col: null, dir: 'asc'};
+  $(document).on('click', '#tbl-gene-de thead th.sortable', function(){
+    var col = $(this).data('col');
+    if(geneDeSort.col === col){
+      geneDeSort.dir = geneDeSort.dir==='asc'?'desc':'asc';
+    } else {
+      geneDeSort.col = col;
+      geneDeSort.dir = 'asc';
+    }
+    sortTable('#tbl-gene-de', geneDeData, col, geneDeSort.dir, renderGeneDeRows, '#tbody-gene-de');
+  });
+
+  function loadGeneDetail(geneId){
+    geneDeSort = {col: null, dir: 'asc'};  // reset sort on new gene
+    loading('geneResult');
+    $.get('api/gene/'+encodeURIComponent(geneId),function(d){
+      if(d.error){showErr('geneResult',d.error);return;}
+      var g=d.gene,mc=d.mean_counts,de=d.de_results;
+      geneDeData = de;  // store for sorting
+
+      var countHtml=mc.length?mc.map(function(c){
+        var semStr = (c.sem != null && c.sem !== '') ? '\u00b1' + parseFloat(c.sem).toFixed(1) : '';
+        var sdStr  = (c.std_dev != null && c.std_dev !== '') ? 'SD: ' + parseFloat(c.std_dev).toFixed(1) : '';
+        var sciCond = condSciLabel(c.condition);
+        return'<div class="count-cell">'+
+          '<div class="grp" title="'+c.apoE_genotype+' \u00b7 '+c.exon_status+' \u00b7 '+c.condition+'">'+sciCond+'</div>'+
+          '<div class="val">'+fmtN(c.mean_count,1)+'</div>'+
+          (semStr ? '<div class="sem-row">SEM '+semStr+'</div>' : '')+
+          (sdStr  ? '<div class="sem-row">'+sdStr+'</div>' : '')+
+          '<div class="nsamp">n = '+c.n_samples+'</div>'+
+          '</div>';
+      }).join(''):'<p style="color:var(--muted)">No count data available.</p>';
+
+      var dlCountsUrl = 'api/download/gene?gene_id=' + encodeURIComponent(geneId);
+      var dlDEUrl     = 'api/download/gene_de?gene_id=' + encodeURIComponent(geneId);
+
+      $('#geneResult').html(
+        '<div class="gene-header">'+
+        '<div class="gene-title"><span class="ensembl-link" data-genename="'+(g.gene_name||g.gene_id)+'" title="Search on NCBI (Mus musculus)">'+(g.gene_name||g.gene_id)+'</span></div>'+
+        '<div class="gene-id-label">'+g.gene_id+'</div></div>'+
+        '<div class="meta-row">'+
+          '<div class="meta-item">Type: <strong>'+(g.gene_type||'&mdash;')+'</strong></div>'+
+          '<div class="meta-item">MGI ID: <strong>'+(g.mgi_id||'&mdash;')+'</strong></div>'+
+          '<div class="meta-item">Havana Gene: <strong>'+(g.havana_gene||'&mdash;')+'</strong></div>'+
+        '</div>'+
+	// -- Counts card with its own download button ----- 
+        '<div class="card">'+
+           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
+            '<div class="card-label" style="margin-bottom:0">Mean Raw Counts by Group <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted)">&mdash; shown with SEM</span></div>'+
+            '<div style="display:flex;gap:8px">'+
+            '<button class="btn btn-secondary" id="btnBarplot" style="font-size:12px;padding:6px 14px">&#128202; View Bar Plot</button>'+
+            '<a href="'+dlCountsUrl+'" class="btn btn-download" style="font-size:12px;padding:6px 14px">&#8595; Download Counts CSV</a>'+
+            '</div>'+
+          '</div>'+
+          '<div class="count-grid">'+countHtml+'</div>'+
+        '</div>'+
+	// DE Results card with its own results button ------
+        '<div class="card">'+
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
+            '<div class="card-label" style="margin-bottom:0">Differential Expression Results <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted)">&mdash; click column headers to sort</span></div>'+
+            '<a href="'+dlDEUrl+'" class="btn btn-download" style="font-size:12px;padding:6px 14px">&#8595; Download DE CSV</a>'+
+          '</div>'+
+          '<div class="table-wrap">'+geneDeTableHtml()+'</div>'+
+        '</div>'
+      );
+      $('#btnBarplot').on('click', function(){
+          showBarplot(g.gene_name || g.gene_id, mc);
+      });  
+      }).fail(function(){showErr('geneResult','Request failed. Check that the database is reachable.');});
+  }
+
+  /* ── Bar Plot ──────────────────────────────────────────────────────── */
+  var barChart = null;
+
+  function showBarplot(geneName, meanCounts){
+    var groupOrder = ['a3c','a4c','a3d','a4d'];
+    var colorMap = {
+      'a3c': 'rgba(29,78,216,0.8)',
+      'a4c': 'rgba(220,38,38,0.8)',
+      'a3d': 'rgba(22,163,74,0.8)',
+      'a4d': 'rgba(217,119,6,0.8)'
+    };
+    var labelMap = {
+      'a3c': '+ex19 e3/e3',
+      'a4c': '+ex19 e4/e4',
+      'a3d': '\u0394ex19 e3/e3',
+      'a4d': '\u0394ex19 e4/e4'
+    };
+
+    var lookup = {};
+    meanCounts.forEach(function(c){
+      var gk = (''+c.apoE_genotype).indexOf('3') >= 0 ? 'a3' : 'a4';
+      var ek = c.exon_status === 'ex19' ? 'c' : 'd';
+      lookup[gk+ek] = { mean: parseFloat(c.mean_count), sem: parseFloat(c.sem)||0 };
+    });
+
+    var labels  = groupOrder.filter(function(g){ return lookup[g] != null; });
+    var values  = labels.map(function(g){ return lookup[g].mean; });
+    var errors  = labels.map(function(g){ return lookup[g].sem; });
+    var colors  = labels.map(function(g){ return colorMap[g]; });
+    var xlabels = labels.map(function(g){ return labelMap[g]||g; });
+
+    $('#barplotTitle').text('Mean Raw Counts by Group \u2014 ' + geneName);
+    $('#barplotModal').addClass('open');
+
+    if(barChart){ barChart.destroy(); }
+    var ctx = document.getElementById('barplotCanvas').getContext('2d');
+    barChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: xlabels,
+        datasets:[{
+          label: 'Mean Count',
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 4,
+          borderWidth: 0,
+          errorBars: errors
+        }]
+      },
+      options:{
+        responsive: true,
+        plugins:{
+          legend:{ display:false },
+          tooltip:{
+            callbacks:{
+              label: function(ctx){
+                var idx = ctx.dataIndex;
+                var sem = errors[idx];
+                return ' Mean: '+ctx.parsed.y.toFixed(1) + (sem ? '  \u00b1SEM: '+sem.toFixed(1) : '');
+              }
+            }
+          }
+        },
+        scales:{
+          y:{
+            beginAtZero: true,
+            title:{ display:true, text:'Mean Raw Count', color:'#6b7a96' },
+            grid:{ color:'#eef1f6' }
+          },
+          x:{ grid:{ display:false } }
+        }
+      }
+    });
+  }
+
+  $('#closeBarplot').on('click', function(){ $('#barplotModal').removeClass('open'); });
+  $('#barplotModal').on('click', function(e){ if($(e.target).is('#barplotModal')) $('#barplotModal').removeClass('open'); });
+
+
+
+
+  /* ── Shared comparison loader ───────────────────────────────────────── */
+  var comparisonsCache = [];
+  $.get('api/de/comparisons',function(data){
+    comparisonsCache = data;
+    var opts = data.map(function(c){
+      return'<option value="'+c.comparison_group+'">'+compOptLabel(c)+'</option>';
+    }).join('');
+    $('#deComparison').html(opts);
+    $('#vcComparison').html(opts);
+  });
+
+  /* ── DE by Comparison ───────────────────────────────────────────────── */
+  var deData = [];
+  var deSort = {col: null, dir: 'asc'};
+
+  function renderDeRows(data){
+    return data.map(function(g,i){
+      return'<tr><td class="rank">'+(i+1)+'</td>'+
+        '<td><span class="gene-link" data-id="'+g.gene_id+'" data-name="'+(g.gene_name||'')+'">'+(g.gene_name||g.gene_id)+'</span></td>'+
+        '<td style="font-family:var(--mono);font-size:12px;color:var(--muted)">'+g.gene_id+'</td>'+
+        '<td><span class="type-tag">'+(g.gene_type||'')+'</span></td>'+
+        '<td class="num">'+fmtLFC(g.logFC)+'</td>'+
+        '<td class="num">'+fmtN(g.logCPM)+'</td>'+
+        '<td class="num">'+fmtN(g.F)+'</td>'+
+        '<td class="num">'+fmtP(g.PValue)+'</td>'+
+        '<td class="num">'+fmtFDR(g.FDR)+'</td></tr>';
+    }).join('');
+  }
+
+  // Delegated sort handler for DE by Comparison table
+  $(document).on('click', '#tbl-de thead th.sortable', function(){
+    var col = $(this).data('col');
+    if(deSort.col === col){
+      deSort.dir = deSort.dir==='asc'?'desc':'asc';
+    } else {
+      deSort.col = col;
+      deSort.dir = 'asc';
+    }
+    sortTable('#tbl-de', deData, col, deSort.dir, renderDeRows, '#tbody-de');
+  });
+
+  $('#btnDE').on('click',function(){
+    var comp=$('#deComparison').val();
+    if(!comp){showErr('deResult','Please select a comparison group.');return;}
+    loading('deResult');
+    deSort = {col: null, dir: 'asc'};  // reset sort state
+    $.get('api/de/top',{comparison_group:comp,fdr_threshold:$('#deFdr').val(),logfc_min:$('#deLogfc').val(),direction:$('#deDirection').val(),limit:$('#deLimit').val()},function(data){
+      if(data.error){showErr('deResult',data.error);return;}
+      if(!data.length){$('#deResult').html('<div class="empty-state"><p>No genes found with the current filter settings.</p></div>');return;}
+      deData = data;
+      var sciComp = sciLabel(comp);
+      $('#deResult').html(
+        '<div class="results-bar" style="display:flex;justify-content:space-between;align-items:center">'+
+        '<span>Showing <strong>'+data.length+'</strong> genes &mdash; <strong>'+sciComp+'</strong> &middot; FDR &le; <strong>'+$('#deFdr').val()+'</strong> &middot; |logFC| &ge; <strong>'+$('#deLogfc').val()+'</strong></span>'+
+        '<a href="api/download/de?comparison_group='+encodeURIComponent(comp)+'&fdr_threshold='+$('#deFdr').val()+'&logfc_min='+$('#deLogfc').val()+'&direction='+$('#deDirection').val()+'" class="btn btn-download">&#8595; Download CSV</a></div>'+
+        '<div class="card" style="padding:0"><div class="table-wrap"><table id="tbl-de">'+
+          '<thead><tr>'+
+            '<th>#</th>'+
+            '<th>Gene Name</th>'+
+            '<th>Ensembl ID</th>'+
+            '<th>Type</th>'+
+            statHeader('logFC','logFC','logFC')+
+            statHeader('logCPM','logCPM','logCPM')+
+            statHeader('F','F','F')+
+            statHeader('P-Value','PValue','PValue')+
+            statHeader('FDR','FDR','FDR')+
+          '</tr></thead>'+
+          '<tbody id="tbody-de">'+renderDeRows(deData)+'</tbody>'+
+        '</table></div></div>'
+      );
+    }).fail(function(){showErr('deResult','Request failed.');});
+  });
+
+  /* ── DE by Genotype/Exon ────────────────────────────────────────────── */
+  var dgData = [];
+  var dgSort = {col: null, dir: 'asc'};
+
+  function renderDgRows(data){
+    return data.map(function(g, i){
+      return '<tr>'+
+        '<td class="rank">'+(i+1)+'</td>'+
+        '<td><span class="gene-link" data-id="'+g.gene_id+'" data-name="'+(g.gene_name||'')+'">'+(g.gene_name||g.gene_id)+'</span></td>'+
+        '<td style="font-family:var(--mono);font-size:12px;color:var(--muted)">'+g.gene_id+'</td>'+
+        '<td><span class="type-tag">'+(g.gene_type||'')+'</span></td>'+
+        '<td style="font-size:12px">'+sciLabel(g.comparison_group)+'<br><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">'+g.comparison_group+'</span></td>'+
+        '<td class="num">'+fmtLFC(g.logFC)+'</td>'+
+        '<td class="num">'+fmtN(g.logCPM)+'</td>'+
+        '<td class="num">'+fmtN(g.F)+'</td>'+
+        '<td class="num">'+fmtP(g.PValue)+'</td>'+
+        '<td class="num">'+fmtFDR(g.FDR)+'</td>'+
+        '</tr>';
+    }).join('');
+  }
+
+  // Delegated sort handler for DE by Genotype/Exon table
+  $(document).on('click', '#tbl-dg thead th.sortable', function(){
+    var col = $(this).data('col');
+    if(dgSort.col === col){
+      dgSort.dir = dgSort.dir==='asc'?'desc':'asc';
+    } else {
+      dgSort.col = col;
+      dgSort.dir = 'asc';
+    }
+    sortTable('#tbl-dg', dgData, col, dgSort.dir, renderDgRows, '#tbody-dg');
+  });
+
+  $('#btnDG').on('click',function(){
+    loading('dgResult');
+    dgSort = {col: null, dir: 'asc'};  // reset sort state
+    var apoe    = $('#dgApoE').val();
+    var exon    = $('#dgExon').val();
+    var dir     = $('#dgDirection').val();
+    var fdr     = $('#dgFdr').val();
+    var logfc   = $('#dgLogfc').val();
+    var lim     = $('#dgLimit').val();
+
+    $.get('api/de/by_group',{
+      apoe_genotype:  apoe,
+      exon_status:    exon,
+      direction:      dir,
+      fdr_threshold:  fdr,
+      logfc_min:      logfc,
+      limit:          lim
+    }, function(data){
+      if(data.error){showErr('dgResult',data.error);return;}
+      if(!data.length){$('#dgResult').html('<div class="empty-state"><p>No genes found with the current filter settings.</p></div>');return;}
+      dgData = data;
+
+      var apoeLabel  = apoe === 'all' ? 'All Genotypes' : apoe;
+      var exonLabel  = exon === 'all' ? 'All' : (exon === 'ex19' ? '+ex19' : '\u0394ex19');
+      var dirLabel   = dir === 'both' ? 'Both' : (dir === 'up' ? 'Up-regulated' : 'Down-regulated');
+
+      var dlUrl = 'api/download/de_by_group?apoe_genotype='+encodeURIComponent(apoe)+
+                  '&exon_status='+encodeURIComponent(exon)+
+                  '&direction='+encodeURIComponent(dir)+
+                  '&fdr_threshold='+encodeURIComponent(fdr)+
+                  '&logfc_min='+encodeURIComponent(logfc);
+
+      $('#dgResult').html(
+        '<div class="results-bar" style="display:flex;justify-content:space-between;align-items:center">'+
+        '<span>Found <strong>'+data.length+'</strong> results &mdash; Genotype: <strong>'+apoeLabel+'</strong> &middot; Exon: <strong>'+exonLabel+'</strong> &middot; Direction: <strong>'+dirLabel+'</strong> &middot; FDR &le; <strong>'+fdr+'</strong> &middot; |logFC| &ge; <strong>'+logfc+'</strong></span>'+
+        '<a href="'+dlUrl+'" class="btn btn-download">&#8595; Download CSV</a></div>'+
+        '<div class="card" style="padding:0"><div class="table-wrap"><table id="tbl-dg">'+
+          '<thead><tr>'+
+            '<th>#</th>'+
+            '<th>Gene Name</th>'+
+            '<th>Ensembl ID</th>'+
+            '<th>Type</th>'+
+            '<th>Comparison Group</th>'+
+            statHeader('logFC','logFC','logFC')+
+            statHeader('logCPM','logCPM','logCPM')+
+            statHeader('F','F','F')+
+            statHeader('P-Value','PValue','PValue')+
+            statHeader('FDR','FDR','FDR')+
+          '</tr></thead>'+
+          '<tbody id="tbody-dg">'+renderDgRows(dgData)+'</tbody>'+
+        '</table></div></div>'
+      );
+    }).fail(function(){showErr('dgResult','Request failed.');});
+  });
+
+  /* Gene link delegation */
+  $(document).on('click','.gene-link',function(){
+    jumpToGene($(this).data('id'),$(this).data('name'));
+  });
+
+  /* Ensembl link delegation */
+  $(document).on('click','.ensembl-link',function(e){
+    e.stopPropagation();
+    var geneName=$(this).data('genename');
+    if(geneName){
+      window.open('https://www.ncbi.nlm.nih.gov/gene/?term='+encodeURIComponent(geneName)+'[Gene+Name]+AND+10090[Taxonomy]','_blank','noopener,noreferrer');
+    }
+  });
+
+  /* ── VOLCANO PLOT ──────────────────────────────────────────────────── */
+
+  var volcanoData = [];
+  var currentVolcanoComp = '';
+
+  $('#btnVC').on('click', function(){
+    var comp = $('#vcComparison').val();
+    if(!comp){ return; }
+    currentVolcanoComp = comp;
+
+    $('#volcanoPlaceholder').show().html('<span>Loading data\u2026</span>');
+    $('#volcano-svg').hide();
+    $('#volcanoLegend').hide();
+    $('#vcStatsCard').hide();
+    $('#btnVCDownload').hide();
+
+    $.get('api/de/top', {
+      comparison_group: comp,
+      fdr_threshold: 1,
+      logfc_min: 0,
+      direction: 'both',
+      limit: 5000
+    }, function(data){
+      if(!data || data.error || !data.length){
+        $('#volcanoPlaceholder').html('<span style="color:var(--down)">No data returned for this comparison.</span>');
+        return;
+      }
+      volcanoData = data;
+      drawVolcano(data, comp);
+    }).fail(function(){
+      $('#volcanoPlaceholder').html('<span style="color:var(--down)">Request failed.</span>');
+    });
+  });
+
+  /* ── Volcano PNG download ──────────────────────────────────────────── */
+  $('#btnVCDownload').on('click', function(){
+    var svgEl = document.getElementById('volcano-svg');
+    if(!svgEl || svgEl.style.display === 'none') return;
+
+    var clone = svgEl.cloneNode(true);
+    var W = parseInt(clone.getAttribute('width'));
+    var H = parseInt(clone.getAttribute('height'));
+
+    var bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bg.setAttribute('width', W); bg.setAttribute('height', H); bg.setAttribute('fill','#ffffff');
+    clone.insertBefore(bg, clone.firstChild);
+
+    var style = document.createElementNS('http://www.w3.org/2000/svg','style');
+    style.textContent = "@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;600;700&display=swap');";
+    clone.insertBefore(style, clone.firstChild);
+
+    var serializer = new XMLSerializer();
+    var svgStr = serializer.serializeToString(clone);
+    var svgBlob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
+    var url = URL.createObjectURL(svgBlob);
+
+    var img = new Image();
+    img.onload = function(){
+      var canvas = document.createElement('canvas');
+      var scale = 2;
+      canvas.width  = W * scale;
+      canvas.height = H * scale;
+      var ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, 0, 0, W, H);
+      URL.revokeObjectURL(url);
+
+      var a = document.createElement('a');
+      a.download = 'volcano_' + currentVolcanoComp + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    };
+    img.onerror = function(){
+      var a = document.createElement('a');
+      a.download = 'volcano_' + currentVolcanoComp + '.svg';
+      a.href = url;
+      a.click();
+    };
+    img.src = url;
+  });
+
+  function drawVolcano(data, comp){
+    var fdrThresh   = parseFloat($('#vcFdr').val()) || 0.05;
+    var logfcThresh = parseFloat($('#vcLogfc').val()) || 1;
+    var topN        = parseInt($('#vcTopLabel').val()) || 10;
+
+    var sciComp = sciLabel(comp);
+
+    var points = data.map(function(g){
+      var fdr = Math.max(parseFloat(g.FDR) || 1e-300, 1e-300);
+      return {
+        gene_id:   g.gene_id,
+        gene_name: g.gene_name || g.gene_id,
+        logFC:     parseFloat(g.logFC) || 0,
+        logCPM:    parseFloat(g.logCPM) || 0,
+        FDR:       parseFloat(g.FDR),
+        PValue:    parseFloat(g.PValue),
+        negLogFDR: -Math.log10(fdr),
+        sig: (parseFloat(g.FDR) <= fdrThresh) && (Math.abs(parseFloat(g.logFC)) >= logfcThresh)
+      };
+    });
+
+    var nUp   = points.filter(function(p){ return p.sig && p.logFC > 0; }).length;
+    var nDown = points.filter(function(p){ return p.sig && p.logFC < 0; }).length;
+    var nNS   = points.length - nUp - nDown;
+
+    $('#vcStats').html(
+      '<div class="volcano-stats-row">'+
+      '<div class="vstat"><strong style="color:#dc2626">'+nUp+'</strong><br>Upregulated</div>'+
+      '<div class="vstat"><strong style="color:#1d4ed8">'+nDown+'</strong><br>Downregulated</div>'+
+      '<div class="vstat"><strong>'+nNS+'</strong><br>Not significant</div>'+
+      '<div class="vstat"><strong>'+points.length+'</strong><br>Total genes</div>'+
+      '</div>'
+    );
+    $('#vcStatsCard').show();
+
+    var wrap = document.getElementById('volcanoWrap');
+    var W = wrap.clientWidth - 32;
+    var H = Math.max(460, Math.round(W * 0.60));
+
+    var margin = {top:40, right:40, bottom:54, left:62};
+    var innerW = W - margin.left - margin.right;
+    var innerH = H - margin.top - margin.bottom;
+
+    var xExtent = d3.extent(points, function(d){ return d.logFC; });
+    var xPad = Math.max(Math.abs(xExtent[0]), Math.abs(xExtent[1])) * 1.12;
+    var yMax = d3.max(points, function(d){ return d.negLogFDR; }) * 1.08;
+
+    var xScale = d3.scaleLinear().domain([-xPad, xPad]).range([0, innerW]);
+    var yScale = d3.scaleLinear().domain([0, yMax]).range([innerH, 0]);
+
+    var svg = d3.select('#volcano-svg')
+      .attr('width', W)
+      .attr('height', H)
+      .attr('viewBox', '0 0 '+W+' '+H);
+
+    svg.selectAll('*').remove();
+
+    svg.append('defs').append('clipPath').attr('id','vc-clip')
+      .append('rect').attr('width', innerW).attr('height', innerH);
+
+    var root = svg.append('g').attr('transform','translate('+margin.left+','+margin.top+')');
+
+    var xAxisG  = root.append('g').attr('class','vc-xaxis').attr('transform','translate(0,'+innerH+')');
+    var yAxisG  = root.append('g').attr('class','vc-yaxis');
+    var gridG   = root.append('g').attr('class','vc-grid');
+    var plotG   = root.append('g').attr('clip-path','url(#vc-clip)');
+    var refG    = plotG.append('g').attr('class','vc-ref');
+    var dotsG   = plotG.append('g').attr('class','vc-dots');
+    var labelsG = plotG.append('g').attr('class','vc-labels');
+
+    root.append('text')
+      .attr('x', innerW/2).attr('y', innerH+42)
+      .attr('text-anchor','middle')
+      .attr('font-size','12px').attr('fill','#6b7a96').attr('font-family','IBM Plex Sans,sans-serif')
+      .text('log\u2082 Fold Change');
+
+    root.append('text')
+      .attr('transform','rotate(-90)')
+      .attr('x', -innerH/2).attr('y', -48)
+      .attr('text-anchor','middle')
+      .attr('font-size','12px').attr('fill','#6b7a96').attr('font-family','IBM Plex Sans,sans-serif')
+      .text('\u2212log\u2081\u2080(FDR)');
+
+    root.append('text')
+      .attr('x', innerW/2).attr('y', -14)
+      .attr('text-anchor','middle')
+      .attr('font-size','13px').attr('font-weight','700').attr('fill','#1a2236').attr('font-family','IBM Plex Sans,sans-serif')
+      .text(sciComp);
+
+    root.append('text')
+      .attr('x', innerW/2).attr('y', -1)
+      .attr('text-anchor','middle')
+      .attr('font-size','10px').attr('fill','#94a3b8').attr('font-family','IBM Plex Mono,monospace')
+      .text('('+comp+')');
+
+    function ptColor(d){
+      if(!d.sig) return '#cbd5e1';
+      return d.logFC > 0 ? '#dc2626' : '#1d4ed8';
+    }
+    function ptOpacity(d){ return d.sig ? 0.82 : 0.45; }
+    function ptRadius(d){ return d.sig ? 4.5 : 3; }
+
+    function render(xs, ys){
+      var xTicks = xs.ticks(6);
+      var yTicks = ys.ticks(6);
+      gridG.selectAll('.vc-xgrid').data(xTicks).join('line')
+        .attr('class','vc-xgrid')
+        .attr('x1',function(t){return xs(t);}).attr('x2',function(t){return xs(t);})
+        .attr('y1',0).attr('y2',innerH)
+        .attr('stroke','#e8ecf2').attr('stroke-width',1);
+      gridG.selectAll('.vc-ygrid').data(yTicks).join('line')
+        .attr('class','vc-ygrid')
+        .attr('x1',0).attr('x2',innerW)
+        .attr('y1',function(t){return ys(t);}).attr('y2',function(t){return ys(t);})
+        .attr('stroke','#e8ecf2').attr('stroke-width',1);
+
+      xAxisG.call(d3.axisBottom(xs).ticks(6).tickSize(3))
+        .call(function(g){ g.selectAll('text').attr('font-size','11px').attr('fill','#6b7a96').attr('font-family','IBM Plex Mono,monospace'); g.select('.domain').attr('stroke','#d5dbe6'); g.selectAll('.tick line').attr('stroke','#d5dbe6'); });
+      yAxisG.call(d3.axisLeft(ys).ticks(6).tickSize(3))
+        .call(function(g){ g.selectAll('text').attr('font-size','11px').attr('fill','#6b7a96').attr('font-family','IBM Plex Mono,monospace'); g.select('.domain').attr('stroke','#d5dbe6'); g.selectAll('.tick line').attr('stroke','#d5dbe6'); });
+
+      var fdrLine = -Math.log10(fdrThresh);
+      refG.selectAll('*').remove();
+      if(fdrLine > ys.domain()[0] && fdrLine < ys.domain()[1]){
+        refG.append('line')
+          .attr('x1',0).attr('x2',innerW)
+          .attr('y1',ys(fdrLine)).attr('y2',ys(fdrLine))
+          .attr('stroke','#94a3b8').attr('stroke-width',1).attr('stroke-dasharray','4,3');
+        refG.append('text').attr('x',4).attr('y',ys(fdrLine)-4)
+          .attr('font-size','10px').attr('fill','#94a3b8').attr('font-family','IBM Plex Sans,sans-serif')
+          .text('FDR='+fdrThresh);
+      }
+      [-logfcThresh, logfcThresh].forEach(function(lfc){
+        if(lfc > xs.domain()[0] && lfc < xs.domain()[1]){
+          refG.append('line')
+            .attr('x1',xs(lfc)).attr('x2',xs(lfc))
+            .attr('y1',0).attr('y2',innerH)
+            .attr('stroke','#94a3b8').attr('stroke-width',1).attr('stroke-dasharray','4,3');
+        }
+      });
+      if(xs.domain()[0] < 0 && xs.domain()[1] > 0){
+        refG.append('line')
+          .attr('x1',xs(0)).attr('x2',xs(0))
+          .attr('y1',0).attr('y2',innerH)
+          .attr('stroke','#d5dbe6').attr('stroke-width',1);
+      }
+
+      dotsG.selectAll('circle').data(points).join('circle')
+        .attr('cx', function(d){ return xs(d.logFC); })
+        .attr('cy', function(d){ return ys(d.negLogFDR); })
+        .attr('r',  function(d){ return ptRadius(d); })
+        .attr('fill', ptColor)
+        .attr('opacity', ptOpacity)
+        .attr('stroke', function(d){ return d.sig ? 'rgba(0,0,0,0.18)' : 'none'; })
+        .attr('stroke-width', 0.5)
+        .style('cursor','pointer');
+
+      var topSig = points.filter(function(p){ return p.sig; })
+        .sort(function(a,b){ return b.negLogFDR - a.negLogFDR; })
+        .slice(0, topN);
+
+      labelsG.selectAll('.vc-label').data(topSig, function(d){ return d.gene_id; }).join(
+        function(enter){ return enter.append('text').attr('class','vc-label'); }
+      )
+        .attr('x', function(d){ return xs(d.logFC) + (d.logFC >= 0 ? 6 : -6); })
+        .attr('y', function(d){ return ys(d.negLogFDR) - 5; })
+        .attr('text-anchor', function(d){ return d.logFC >= 0 ? 'start' : 'end'; })
+        .attr('font-size','10px')
+        .attr('font-weight','600')
+        .attr('fill', function(d){ return d.logFC > 0 ? '#b91c1c' : '#1e40af'; })
+        .attr('font-family','IBM Plex Sans,sans-serif')
+        .attr('pointer-events','none')
+        .text(function(d){ return d.gene_name; });
+    }
+
+    render(xScale, yScale);
+
+    var zoom = d3.zoom()
+      .scaleExtent([0.5, 40])
+      .on('zoom', function(event){
+        var t = event.transform;
+        var newX = t.rescaleX(xScale);
+        var newY = t.rescaleY(yScale);
+        render(newX, newY);
+      });
+
+    svg.call(zoom);
+    svg.on('dblclick.zoom', function(){
+      svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+    });
+
+    var tooltip = document.getElementById('vTooltip');
+
+    dotsG.selectAll('circle')
+      .on('mousemove', function(event, d){
+        var fdrStr = d.FDR < 0.0001 ? d.FDR.toExponential(2) : d.FDR.toFixed(4);
+        var pvStr  = d.PValue < 0.0001 ? d.PValue.toExponential(2) : d.PValue.toFixed(4);
+        tooltip.innerHTML =
+          '<div class="tooltip-gene">'+(d.gene_name||d.gene_id)+'</div>'+
+          '<div style="font-size:10px;color:#64748b;margin-bottom:5px">'+d.gene_id+'</div>'+
+          '<div class="tooltip-row"><span class="tooltip-label">logFC</span><span class="tooltip-val" style="color:'+(d.logFC>=0?'#fca5a5':'#93c5fd')+'">'+(d.logFC>=0?'+':'')+d.logFC.toFixed(3)+'</span></div>'+
+          '<div class="tooltip-row"><span class="tooltip-label">logCPM</span><span class="tooltip-val">'+d.logCPM.toFixed(3)+'</span></div>'+
+          '<div class="tooltip-row"><span class="tooltip-label">FDR</span><span class="tooltip-val">'+fdrStr+'</span></div>'+
+          '<div class="tooltip-row"><span class="tooltip-label">P-Value</span><span class="tooltip-val">'+pvStr+'</span></div>'+
+          '<div style="margin-top:6px;font-size:10px;color:#64748b;font-style:italic">Click to open gene profile</div>';
+        tooltip.style.opacity = '1';
+        tooltip.style.left = (event.clientX + 14) + 'px';
+        tooltip.style.top  = (event.clientY - 10) + 'px';
+        d3.select(this).attr('stroke','#1a2236').attr('stroke-width',1.5);
+      })
+      .on('mouseleave', function(event, d){
+        tooltip.style.opacity = '0';
+        d3.select(this)
+          .attr('stroke', d.sig ? 'rgba(0,0,0,0.18)' : 'none')
+          .attr('stroke-width', 0.5);
+      })
+      .on('click', function(event, d){
+        tooltip.style.opacity = '0';
+        jumpToGene(d.gene_id, d.gene_name);
+      });
+
+    $('#volcanoPlaceholder').hide();
+    $('#volcano-svg').show();
+    $('#volcanoLegend').show();
+    $('#btnVCDownload').show();
+  }
+
+});
+</script>
+    <div id="barplotModal">
+    <div class="modal-box">
+        <button class="modal-close" id="closeBarplot">&times;</button>
+        <div id="barplotTitle" style="font-size:16px;font-weight:700;margin-bottom:18px"></div>
+        <canvas id="barplotCanvas" height="300"></canvas>
+    </div>
+    </div>
+</body>
+</html>
