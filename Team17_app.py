@@ -7,8 +7,8 @@ from flask import Flask, request, render_template, jsonify, Response
 app = Flask(__name__)
 
 DB_HOST     = "bioed-new.bu.edu"
-DB_USER     = "mmccar53"
-DB_PASSWORD = "$parkleS0509"
+DB_USER     = "*****"
+DB_PASSWORD = "*****"
 DB_NAME     = "Team17"
 DB_PORT     = 4253
 
