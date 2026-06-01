@@ -1,0 +1,120 @@
+
+```{r}
+library(tidyverse)
+
+# LOAD RAW FILES
+# Adjust paths as needed
+counts_raw <- read_csv("counts.csv")       # wide gene-count matrix
+de_raw     <- read_csv("de_results.csv")   # differential expression results
+```
+
+```{r}
+# SAMPLE KEY
+# CG01-03 = a3c | CG04-06 = a3d | CG07-09 = a4c | CG10-12 = a4d
+samples <- tibble(
+  sample_id     = sprintf("CG%02d", 1:12),
+  condition     = rep(c("a3c", "a3d", "a4c", "a4d"), each = 3),
+  apoE_genotype = rep(c("e3/e3", "e3/e3", "e4/e4", "e4/e4"), each = 3),
+  exon_status   = rep(c("ex19", "Dex19", "ex19", "Dex19"), each = 3)
+)
+ 
+write_csv(samples, "samples.csv")
+message("✓ samples.csv written (", nrow(samples), " rows)")
+```
+
+
+```{r}
+# GENES TABLE
+genes <- de_raw %>%
+  select(gene_id, gene_name, gene_type, mgi_id, havana_gene) %>%
+  distinct(gene_id, .keep_all = TRUE)
+
+write_csv(genes, "genes.csv")
+message("✓ genes.csv written (", nrow(genes), " rows)")
+```
+
+```{r}
+# EXPRESSION COUNTS TABLE  (wide → long)
+# The counts file has columns: geneID, CG01, CG02, ..., CG12
+expression_counts <- counts_raw %>%
+  rename(gene_id = geneID) %>%   # normalize column name
+  pivot_longer(
+    cols      = starts_with("CG"),
+    names_to  = "sample_id",
+    values_to = "count"
+  ) %>%
+  # This will now match versioned IDs correctly
+  semi_join(genes, by = "gene_id") %>%
+  select(gene_id, sample_id, count)
+
+write_csv(expression_counts, "expression_counts.csv")
+message("✓ expression_counts.csv written (", nrow(expression_counts), " rows)")
+```
+
+```{r}
+# DIFFERENTIAL EXPRESSION TABLE
+differential_expression <- de_raw %>%
+  select(
+    gene_id,
+    comparison_group,
+    logFC,
+    logCPM,
+    F,
+    PValue,
+    FDR
+  )
+
+write_csv(differential_expression, "differential_expression.csv")
+message("✓ differential_expression.csv written (", nrow(differential_expression), " rows)")
+```
+
+```{r}
+# COMPARISONS TABLE
+# Derive condition_1 / condition_2 by splitting on "_"
+# e.g. "a3c_a3d" → condition_1 = "a3c", condition_2 = "a3d"
+comparisons <- differential_expression %>%
+  distinct(comparison_group) %>%
+  separate(comparison_group,
+           into  = c("condition_1", "condition_2"),
+           sep   = "_",
+           remove = FALSE)
+ 
+write_csv(comparisons, "comparisons.csv")
+message("✓ comparisons.csv written (", nrow(comparisons), " rows)")
+
+# Do all DE gene_ids exist in genes?
+anti_join(differential_expression, genes, by = "gene_id")
+
+# Do all DE comparison_groups exist in comparisons?
+anti_join(differential_expression, comparisons, by = "comparison_group")
+
+# Do all expression_counts gene_ids exist in genes?
+anti_join(expression_counts, genes, by = "gene_id")
+```
+
+```{r}
+# QUICK VALIDATION
+cat("\n--- Validation summary ---\n")
+ 
+# All sample_ids in expression_counts exist in samples
+orphan_samples <- anti_join(expression_counts, samples, by = "sample_id")
+cat("expression_counts rows with unknown sample_id: ", nrow(orphan_samples), "\n")
+ 
+# All gene_ids in expression_counts exist in genes
+orphan_genes_ec <- anti_join(expression_counts, genes, by = "gene_id")
+cat("expression_counts rows with unknown gene_id:   ", nrow(orphan_genes_ec), "\n")
+ 
+# All gene_ids in differential_expression exist in genes
+orphan_genes_de <- anti_join(differential_expression, genes, by = "gene_id")
+cat("differential_expression rows with unknown gene_id: ", nrow(orphan_genes_de), "\n")
+ 
+# All comparison_groups in differential_expression exist in comparisons
+orphan_cg <- anti_join(differential_expression, comparisons, by = "comparison_group")
+cat("differential_expression rows with unknown comparison_group: ", nrow(orphan_cg), "\n")
+ 
+cat("\nAll five CSVs are ready to LOAD DATA INFILE into MariaDB.\n")
+cat("Recommended load order (respects FK dependencies):\n")
+cat("  1. genes.csv\n  2. samples.csv\n  3. comparisons.csv\n")
+cat("  4. expression_counts.csv\n  5. differential_expression.csv\n")
+```
+
